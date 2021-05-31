@@ -1,0 +1,70 @@
+from mip import * 
+from mip import Model, xsum, BINARY
+import pandas as pd 
+import numpy as np
+from sys import stdout as out
+from itertools import product
+B = pd.read_csv('https://raw.githubusercontent.com/asepulvede/Optimizacion/main/B.csv', index_col=0, sep=';') 
+F = pd.read_csv('https://raw.githubusercontent.com/asepulvede/Optimizacion/main/F.csv', index_col=0, sep=';') 
+I = pd.read_csv('https://raw.githubusercontent.com/asepulvede/Optimizacion/main/I.csv', index_col=0, sep=';') 
+G = pd.read_csv('https://raw.githubusercontent.com/asepulvede/Optimizacion/main/G.csv', index_col=0, sep=';') 
+J = pd.read_csv('https://raw.githubusercontent.com/asepulvede/Optimizacion/main/J.csv', index_col=0, sep=';') 
+B=B.to_numpy() 
+F=F.to_numpy() 
+I=I.to_numpy() 
+G=G.to_numpy() 
+J=J.to_numpy()
+
+m = Model() 
+m = Model(sense=MAXIMIZE, solver_name=CBC) # use GRB for Gurobi 
+n=480 #profesores 
+s=1263 #cursos 
+
+##VARIABLES DE DECISION
+x = {(i, j): m.add_var(obj=0, var_type=BINARY, name="x[%d,%d]" % (i, j))for i in range(n) for j in range(s)}
+y = {i: m.add_var(obj=1, var_type=BINARY, name="y[%d]" % i)for i in range(n)}
+
+
+##RESTRICCIONES
+#La cantidad de horas asignadas a cada profesor de tiempo completo debe serigual a la cantidad de horas disponibles.
+for i in range(n):
+    m.add_constr(xsum(3*G[i,0]*x[i,j] for j in range(s)) == I[i,0]*G[i,0])
+# La cantidad de horas asignadas a cada profesor de c ́atedra no puede superar lacantidad de horas especificadas.
+for i in range(n):
+    m.add_constr(xsum(3*(1-G[i,0])*x[i,j] for j in range(s)) <= I[i,0]*G[i,0])
+# Los profesores de tiempo completo no deben tener asignado m ́as de un cursonuevo (que no haya dictado en los  ́ultimos 2 a ̃nos)
+for i in range(n):
+    m.add_constr(xsum((1-F[j,i])*G[i,0]*x[i,j] for j in range(s)) <= 1)
+
+#El profesor debe estar en capacidad de ofrecer el curso
+'''
+for i in range(n): 
+  for j in range(s):
+    m.add_constr((x[i,j]*B[i,j])<=x[i,j])
+'''
+#Los cursos asignados a cada profesor no se pueden traslapar
+'''
+
+for j in range(s):
+  for i in range(124):
+    if i==20 or i==45 or i==70 or i==95 or i==120:
+      m.add_constr(J[j+2,i]*xsum(J[j+2,h] for h in range(i+1,i+4)) == 0)
+    if i==21 or i==46 or i==71 or i==96 or i==121:
+      m.add_constr(J[j+2,i]*xsum(J[j+2,h] for h in range(i+1,i+3)) == 0)
+    if i==22 or i==47 or i==72 or i==97 or i==122:
+      m.add_constr(J[j+2,i]*xsum(J[j+2,h] for h in range(i+1,i+2)) == 0)
+    if i==23 or i==48 or i==73 or i==98 or i==123:
+      m.add_constr(J[j+2,i]*J[j+2,i+1]  == 0)
+    else:
+      m.add_constr(J[j+2,i]*xsum(J[j+2,h] for h in range(i+1,i+5)) == 0)
+'''
+
+#Profesores de tiempo completo que deben ser contratados:
+'''
+for i in range(n):
+    m.add_constr(G[i,0]*y[i]==G[i,0])
+
+'''
+##FUNCION OBJETIVO
+m.objective = maximize(xsum(x[i,j]*(1-G[i,0]) + y[i] for j in range(s) for i in range(n)))
+m.optimize()
